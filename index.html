@@ -267,7 +267,7 @@
       margin-top: 8px;
       display: grid;
       gap: 8px;
-      justify-items: center;
+      justify-items: stretch;
     }
 
     .result button {
@@ -356,10 +356,16 @@
     }
 
     .result-line {
-      margin-top: 8px;
+      margin-top: 2px;
       text-align: center;
-      font-size: clamp(26px, 3vw, 42px);
+      font-size: clamp(30px, 4vw, 56px);
       font-weight: 900;
+      min-height: 1.4em;
+      padding: 8px 14px;
+      background: rgba(10, 15, 20, .76);
+      border: 1px solid #273447;
+      width: fit-content;
+      justify-self: center;
     }
 
     .result-line .left { color: var(--ok); }
@@ -406,29 +412,28 @@
         </div>
 
         <div class="result">
-          <button id="resetScoreBtn" class="warn">清空分數</button>
-          <button id="tieBtn">重置犯規</button>
+          <div id="resultText" class="result-line"><span class="tie">&nbsp;</span></div>
           <div class="shot-row">
             <div class="shot" id="leftMissBtn">
-              <span class="label">犯規 左側</span>
+              <span class="label">犯規</span>
               <span class="miss-lights">
                 <span class="miss-light" id="leftMissLight1"></span>
                 <span class="miss-light" id="leftMissLight2"></span>
               </span>
             </div>
             <div class="shot" id="rightMissBtn">
-              <span class="label">犯規 右側</span>
+              <span class="label">犯規</span>
               <span class="miss-lights">
                 <span class="miss-light" id="rightMissLight1"></span>
                 <span class="miss-light" id="rightMissLight2"></span>
               </span>
             </div>
           </div>
+          <button id="resetScoreBtn" class="warn">清空分數</button>
+          <button id="tieBtn">重置犯規</button>
         </div>
 
         <div class="controls"></div>
-
-        <div id="resultText" class="result-line"><span class="tie">&nbsp;</span></div>
       </div>
 
       <div class="side right" id="rightSide"></div>
@@ -539,8 +544,8 @@
 
     function renderResult() {
       const el = document.getElementById("resultText");
-      if (state.result === "左方勝利") el.innerHTML = '<span class="left">左方勝利</span>';
-      else if (state.result === "右方勝利") el.innerHTML = '<span class="right">右方勝利</span>';
+      if (state.result === "左方勝利" || state.result === "left_win") el.innerHTML = `<span class="left">${state.leftName} 勝利</span>`;
+      else if (state.result === "右方勝利" || state.result === "right_win") el.innerHTML = `<span class="right">${state.rightName} 勝利</span>`;
       else if (state.result === "平手") el.innerHTML = '<span class="tie">平手</span>';
       else el.innerHTML = '<span class="tie">&nbsp;</span>';
     }
@@ -611,8 +616,8 @@
       else state.rightScore += amount;
 
       const winnerSide = getWinnerSide();
-      if (winnerSide === "left") state.result = "左方勝利";
-      else if (winnerSide === "right") state.result = "右方勝利";
+      if (winnerSide === "left") state.result = "left_win";
+      else if (winnerSide === "right") state.result = "right_win";
       else state.result = "";
 
       render();
