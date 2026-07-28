@@ -380,45 +380,25 @@
     .result-line .right { color: #52d8ff; }
     .result-line .tie { color: #f0f4ff; }
 
-    @media (max-width: 900px) {
-      body { padding: 8px; }
-      .board { width: 100%; padding: 10px; }
-      .top-row { grid-template-columns: 1fr; gap: 8px; }
-      .center-status { order: -1; width: 100%; min-width: 0; }
-      .name-box input { font-size: clamp(26px, 8vw, 42px); }
-
-      .main { grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
-      .center { order: -1; gap: 10px; }
-      .score-panels { grid-template-columns: 1fr auto 1fr; }
-      .score-box { height: 146px; border-width: 4px; border-radius: 30px; }
-      .score-value { font-size: clamp(56px, 19vw, 92px); }
-      .versus { font-size: clamp(40px, 11vw, 66px); }
-      .score-title { font-size: 18px; letter-spacing: .2em; }
-
-      .side { grid-template-columns: 1fr 1fr; gap: 8px; }
-      .score-item { min-height: 84px; padding: 8px 10px; }
-      .score-item.x { min-height: 102px; }
-      .score-item .name { font-size: clamp(22px, 6.2vw, 34px); }
-      .score-item .sub { font-size: clamp(14px, 3.9vw, 20px); }
-      .score-item .point { font-size: clamp(30px, 8vw, 46px); }
-      .score-item.x .name { font-size: clamp(30px, 8.2vw, 46px); }
-
-      .result-line { font-size: clamp(26px, 8.2vw, 42px); }
-      .result button { font-size: clamp(26px, 8vw, 42px); }
-      .shot { font-size: 18px; }
+    .board-wrap {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
 
-    @media (max-width: 560px) {
-      .score-panels { grid-template-columns: 1fr; }
-      .versus { text-align: center; }
-      .shot-row { grid-template-columns: 1fr; }
-      .score-item .sub { display: none; }
-      .score-item { min-height: 76px; }
+    @media (max-width: 1200px) {
+      body { padding: 8px; overflow-x: hidden; }
+      .board {
+        width: 1500px;
+        max-width: none;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="board">
+  <div class="board-wrap" id="boardWrap">
+  <div class="board" id="board">
     <div class="top-row">
       <div class="name-box"><input id="leftName" value="B Side" /></div>
       <div class="center-status">
@@ -474,6 +454,7 @@
 
       <div class="side right" id="rightSide"></div>
     </div>
+  </div>
   </div>
 
   <script>
@@ -738,12 +719,31 @@
       }
     });
 
+    function updateBoardScale() {
+      const wrap = document.getElementById("boardWrap");
+      const board = document.getElementById("board");
+      if (!wrap || !board) return;
+
+      board.style.transform = "";
+      board.style.transformOrigin = "top center";
+      board.style.marginBottom = "";
+
+      if (window.innerWidth > 1200) return;
+
+      const baseWidth = board.offsetWidth || 1500;
+      const scale = Math.min(1, (window.innerWidth - 8) / baseWidth);
+      board.style.transform = `scale(${scale})`;
+      board.style.marginBottom = `${(1 - scale) * board.offsetHeight}px`;
+    }
+
     load();
     applyTournamentMatch();
     state.leftMissCount = Math.max(0, Math.min(2, Number(state.leftMissCount) || 0));
     state.rightMissCount = Math.max(0, Math.min(2, Number(state.rightMissCount) || 0));
     save();
     render();
+    updateBoardScale();
+    window.addEventListener("resize", updateBoardScale);
   </script>
 </body>
 </html>
