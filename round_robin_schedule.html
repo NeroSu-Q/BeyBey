@@ -1,0 +1,522 @@
+﻿<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>賽程表 - 循環賽</title>
+  <style>
+    :root {
+      --bg: #0a0f14;
+      --panel: #121a24;
+      --panel-2: #1a2533;
+      --line: #25ff35;
+      --text: #eff5ff;
+      --muted: #9aa8bf;
+      --chip: #0e1521;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Bahnschrift", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% -20%, #192536 0%, transparent 58%),
+        repeating-linear-gradient(135deg, #0a0f14 0 16px, #0d141d 16px 32px),
+        var(--bg);
+      padding: 20px;
+    }
+
+    .wrap {
+      width: min(1180px, 96vw);
+      margin: 0 auto;
+      border: 2px solid #263344;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+      padding: 18px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.45);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(28px, 3.2vw, 46px);
+      letter-spacing: 1px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .btn {
+      border: 1px solid #41536c;
+      background: var(--chip);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .btn.primary {
+      border-color: #1f7f2e;
+      background: #103018;
+      color: #d5ffe0;
+    }
+
+    .step {
+      margin-bottom: 16px;
+      border: 1px solid #2e3f55;
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .step h2 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input[type="number"],
+    input[type="text"] {
+      border: 1px solid #3b4f69;
+      background: #0c131d;
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    input[type="number"] {
+      width: 120px;
+    }
+
+    .name-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    .rounds {
+      display: grid;
+      gap: 10px;
+    }
+
+    .round {
+      border: 1px solid #2f4158;
+      border-radius: 10px;
+      background: var(--panel-2);
+      padding: 10px;
+    }
+
+    .round h3 {
+      margin: 0 0 8px;
+      font-size: 19px;
+      color: #d7e3ff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #0d1520;
+    }
+
+    th, td {
+      border: 1px solid #29384b;
+      padding: 8px;
+      text-align: left;
+      font-size: 15px;
+    }
+
+    th { background: #152131; }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid #2e8640;
+      color: #c9ffd4;
+      background: rgba(37,255,53,.08);
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 13px;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+
+    .hidden { display: none; }
+
+    .standings {
+      margin-top: 12px;
+      border: 1px solid #2f4158;
+      border-radius: 10px;
+      background: #111b28;
+      padding: 10px;
+    }
+
+    .standings h3 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      color: #d7e3ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>賽程表（人數循環賽）</h1>
+
+    <div class="toolbar">
+      <button id="backBtn" class="btn">返回記分板</button>
+      <button id="clearBtn" class="btn">清空本頁資料</button>
+    </div>
+
+    <section class="step" id="step1">
+      <h2>步驟 1：輸入人數</h2>
+      <div class="row">
+        <label for="playerCount">參賽人數</label>
+        <input id="playerCount" type="number" min="2" max="64" value="4" />
+        <button id="buildNamesBtn" class="btn primary">下一步：輸入名字</button>
+      </div>
+      <div class="hint">支援 2-64 人。奇數人會自動加入「輪空」。</div>
+    </section>
+
+    <section class="step hidden" id="step2">
+      <h2>步驟 2：輸入參賽者名字</h2>
+      <div id="nameInputs" class="name-grid"></div>
+      <div class="row" style="margin-top: 10px;">
+        <button id="generateBtn" class="btn primary">產生循環賽賽程圖表</button>
+      </div>
+    </section>
+
+    <section class="step hidden" id="step3">
+      <h2>賽程圖表</h2>
+      <div id="meta"></div>
+      <div id="rounds" class="rounds"></div>
+      <div id="standings" class="standings hidden">
+        <h3>最終積分榜</h3>
+        <div id="standingsTable"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const draftKey = "offline-round-robin-v1";
+    const tournamentKey = "offline-tournament-v1";
+
+    function saveData(data) {
+      localStorage.setItem(draftKey, JSON.stringify(data));
+    }
+
+    function loadData() {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+
+    function saveTournament(data) {
+      localStorage.setItem(tournamentKey, JSON.stringify(data));
+    }
+
+    function loadTournament() {
+      const raw = localStorage.getItem(tournamentKey);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+
+    function createNameInputs(count, names = []) {
+      const host = document.getElementById("nameInputs");
+      host.innerHTML = "";
+      for (let i = 0; i < count; i += 1) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = `選手 ${i + 1}`;
+        input.value = names[i] || "";
+        input.dataset.index = String(i);
+        host.appendChild(input);
+      }
+    }
+
+    function collectNames(count) {
+      const inputs = [...document.querySelectorAll("#nameInputs input")];
+      const names = inputs.slice(0, count).map((input, i) => {
+        const value = input.value.trim();
+        return value || `選手 ${i + 1}`;
+      });
+      return names;
+    }
+
+    function buildRoundRobin(names) {
+      const list = [...names];
+      const hasBye = list.length % 2 === 1;
+      if (hasBye) list.push("輪空");
+
+      const n = list.length;
+      const rounds = [];
+      let matchId = 1;
+      let arr = [...list];
+
+      for (let r = 0; r < n - 1; r += 1) {
+        const matches = [];
+        for (let i = 0; i < n / 2; i += 1) {
+          const a = arr[i];
+          const b = arr[n - 1 - i];
+          if (a !== "輪空" && b !== "輪空") {
+            matches.push({ id: `M${matchId++}`, round: r + 1, table: matches.length + 1, a, b });
+          }
+        }
+        rounds.push({ round: r + 1, matches });
+
+        const fixed = arr[0];
+        const moving = arr.slice(1);
+        moving.unshift(moving.pop());
+        arr = [fixed, ...moving];
+      }
+
+      return { rounds, hasBye };
+    }
+
+    function getFlatMatches(rounds) {
+      const flat = [];
+      rounds.forEach((round) => (round.matches || []).forEach((m) => flat.push(m)));
+      return flat;
+    }
+
+    function computeStandings(players, results) {
+      const map = Object.fromEntries(players.map((p) => [p, {
+        player: p,
+        played: 0,
+        win: 0,
+        draw: 0,
+        lose: 0,
+        points: 0,
+        totalScore: 0,
+        againstScore: 0,
+      }]));
+
+      Object.values(results || {}).forEach((res) => {
+        const a = map[res.a];
+        const b = map[res.b];
+        if (!a || !b) return;
+
+        const as = Number(res.leftScore) || 0;
+        const bs = Number(res.rightScore) || 0;
+
+        a.played += 1;
+        b.played += 1;
+        a.totalScore += as;
+        b.totalScore += bs;
+        a.againstScore += bs;
+        b.againstScore += as;
+
+        if (as > bs) {
+          a.win += 1;
+          b.lose += 1;
+          a.points += 3;
+        } else if (bs > as) {
+          b.win += 1;
+          a.lose += 1;
+          b.points += 3;
+        } else {
+          a.draw += 1;
+          b.draw += 1;
+          a.points += 1;
+          b.points += 1;
+        }
+      });
+
+      const rows = Object.values(map).map((r) => ({
+        ...r,
+        diff: r.totalScore - r.againstScore,
+      }));
+
+      rows.sort((x, y) =>
+        y.points - x.points ||
+        y.diff - x.diff ||
+        y.totalScore - x.totalScore ||
+        x.player.localeCompare(y.player, "zh-Hant")
+      );
+
+      return rows;
+    }
+
+    function renderStandings(players, tournamentState, allDone) {
+      const host = document.getElementById("standings");
+      const tableHost = document.getElementById("standingsTable");
+      if (!allDone) {
+        host.classList.add("hidden");
+        tableHost.innerHTML = "";
+        return;
+      }
+
+      const rows = computeStandings(players, tournamentState?.results || {});
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>選手</th>
+            <th>積分</th>
+            <th>總分</th>
+            <th>失分</th>
+            <th>分差</th>
+            <th>勝/和/敗</th>
+          </tr>
+        </thead>
+      `;
+      const tbody = document.createElement("tbody");
+      let lastPoints = null;
+      let lastRank = 0;
+      rows.forEach((r, idx) => {
+        const rank = (idx === 0 || r.points !== lastPoints) ? (idx + 1) : lastRank;
+        lastPoints = r.points;
+        lastRank = rank;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${rank}</td><td>${r.player}</td><td>${r.points}</td><td>${r.totalScore}</td><td>${r.againstScore}</td><td>${r.diff}</td><td>${r.win}/${r.draw}/${r.lose}</td>`;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      tableHost.innerHTML = "";
+      tableHost.appendChild(table);
+      host.classList.remove("hidden");
+    }
+
+    function renderSchedule(names, schedule, tournamentState = null) {
+      const meta = document.getElementById("meta");
+      const roundsEl = document.getElementById("rounds");
+      roundsEl.innerHTML = "";
+      const flat = getFlatMatches(schedule.rounds);
+      const indexById = Object.fromEntries(flat.map((m, idx) => [m.id, idx]));
+      const currentIndex = Number(tournamentState?.currentMatchIndex) || 0;
+      const results = tournamentState?.results || {};
+      const allDone = flat.length > 0 && currentIndex >= flat.length;
+
+      meta.innerHTML = [
+        `<span class="badge">參賽人數：${names.length}</span>`,
+        `<span class="badge">總輪數：${schedule.rounds.length}</span>`,
+        `<span class="badge">總場次：${flat.length}</span>`,
+        `<span class="badge">目前場次：${Math.min(currentIndex + 1, Math.max(flat.length, 1))}/${Math.max(flat.length, 1)}</span>`,
+        schedule.hasBye ? '<span class="badge">含輪空機制</span>' : ""
+      ].join(" ");
+
+      schedule.rounds.forEach((round) => {
+        const box = document.createElement("article");
+        box.className = "round";
+
+        const title = document.createElement("h3");
+        title.textContent = `第 ${round.round} 輪`;
+        box.appendChild(title);
+
+        const table = document.createElement("table");
+        table.innerHTML = "<thead><tr><th>場次</th><th>選手 A</th><th>選手 B</th><th>狀態</th><th>結果</th></tr></thead>";
+
+        const tbody = document.createElement("tbody");
+        round.matches.forEach((m) => {
+          const res = results[m.id];
+          const idx = indexById[m.id];
+          const status = res ? "完成" : (idx === currentIndex ? "進行中" : "待賽");
+          const resultText = res ? `${res.leftScore} : ${res.rightScore}（${res.winner}）` : "-";
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${m.table}</td><td>${m.a}</td><td>${m.b}</td><td>${status}</td><td>${resultText}</td>`;
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(tbody);
+        box.appendChild(table);
+        roundsEl.appendChild(box);
+      });
+
+      renderStandings(names, tournamentState, allDone);
+    }
+
+    function showStep(step2 = false, step3 = false) {
+      document.getElementById("step2").classList.toggle("hidden", !step2);
+      document.getElementById("step3").classList.toggle("hidden", !step3);
+    }
+
+    document.getElementById("buildNamesBtn").addEventListener("click", () => {
+      const count = Number(document.getElementById("playerCount").value);
+      if (!Number.isInteger(count) || count < 2 || count > 64) {
+        alert("請輸入 2 到 64 之間的人數。");
+        return;
+      }
+
+      createNameInputs(count);
+      showStep(true, false);
+
+      saveData({ count, names: [] });
+    });
+
+    document.getElementById("generateBtn").addEventListener("click", () => {
+      const count = Number(document.getElementById("playerCount").value);
+      const names = collectNames(count);
+      const schedule = buildRoundRobin(names);
+      const tournament = {
+        createdAt: new Date().toISOString(),
+        players: names,
+        rounds: schedule.rounds,
+        currentMatchIndex: 0,
+        results: {},
+      };
+      saveTournament(tournament);
+      renderSchedule(names, schedule, tournament);
+      showStep(true, true);
+      saveData({ count, names });
+    });
+
+    document.getElementById("backBtn").addEventListener("click", () => {
+      window.location.href = "./beyx_offline_scoreboard.html";
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      localStorage.removeItem(draftKey);
+      localStorage.removeItem(tournamentKey);
+      document.getElementById("playerCount").value = "4";
+      document.getElementById("nameInputs").innerHTML = "";
+      document.getElementById("meta").innerHTML = "";
+      document.getElementById("rounds").innerHTML = "";
+      showStep(false, false);
+    });
+
+    const saved = loadData();
+    if (saved && Number.isInteger(saved.count) && saved.count >= 2 && saved.count <= 64) {
+      document.getElementById("playerCount").value = String(saved.count);
+      createNameInputs(saved.count, saved.names || []);
+      showStep(true, false);
+    }
+
+    const tournament = loadTournament();
+    if (tournament && Array.isArray(tournament.players) && Array.isArray(tournament.rounds)) {
+      const names = tournament.players;
+      document.getElementById("playerCount").value = String(names.length);
+      createNameInputs(names.length, names);
+      const hasBye = names.length % 2 === 1;
+      renderSchedule(names, { rounds: tournament.rounds, hasBye }, tournament);
+      showStep(true, true);
+    }
+  </script>
+</body>
+</html>

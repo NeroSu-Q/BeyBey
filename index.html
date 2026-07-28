@@ -1,0 +1,708 @@
+﻿<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>離線記分板</title>
+  <style>
+    :root {
+      --bg: #0b0e11;
+      --panel: #11161d;
+      --panel-2: #171d24;
+      --line: #25ff35;
+      --text: #f5f8ff;
+      --muted: #aeb8d6;
+      --accent: #b7c1ff;
+      --danger: #ff4b5e;
+      --ok: #38f25a;
+      --gray: #9ca3af;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Bahnschrift", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% -20%, #1b222c 5%, transparent 60%),
+        repeating-linear-gradient(135deg, #0b0e11 0 18px, #0f141b 18px 36px),
+        var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    .board {
+      width: min(1500px, 98vw);
+      border: 2px solid #1f2a35;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+      box-shadow: 0 20px 40px rgba(0,0,0,.45);
+    }
+
+    .top-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .name-box {
+      border: 3px solid var(--line);
+      background: #fff;
+      clip-path: polygon(0 0, 90% 0, 100% 40%, 100% 100%, 0 100%);
+      padding: 12px 18px;
+    }
+
+    .name-box input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #0e1320;
+      font-size: clamp(26px, 4vw, 64px);
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    .center-status {
+      text-align: center;
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      align-items: center;
+      justify-self: center;
+      width: max-content;
+      min-width: 180px;
+    }
+
+    .r-label {
+      display: grid;
+      justify-items: center;
+      align-items: center;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      width: 100%;
+    }
+
+    .r-label .rl-main {
+      font-size: clamp(28px, 3.8vw, 52px);
+      letter-spacing: 1px;
+      font-weight: 900;
+      font-family: "Bahnschrift", "Segoe UI Black", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      color: #f5f8ff;
+      text-shadow: 0 0 12px rgba(255, 255, 255, .12);
+      white-space: nowrap;
+      width: 100%;
+      text-align: center;
+    }
+
+    .r-label .rl-main strong {
+      color: var(--line);
+      margin-left: 4px;
+      text-shadow: 0 0 14px rgba(37, 255, 53, .45);
+    }
+
+    .r-label .rl-sub {
+      margin-top: 4px;
+      font-size: clamp(16px, 1.6vw, 24px);
+      letter-spacing: .08em;
+      font-weight: 800;
+      font-family: "Bahnschrift", "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      color: #cbd8f4;
+      opacity: .95;
+      white-space: nowrap;
+      text-align: center;
+      width: 100%;
+    }
+
+    .tag {
+      border: 0;
+      background: #a6adb8;
+      color: #121723;
+      font-size: clamp(24px, 3.4vw, 46px);
+      font-weight: 900;
+      padding: 6px 28px;
+      clip-path: polygon(7% 0, 93% 0, 100% 50%, 93% 100%, 7% 100%, 0 50%);
+      cursor: pointer;
+    }
+
+    .main {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 360px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .side {
+      display: grid;
+      gap: 10px;
+    }
+
+    .score-item {
+      appearance: none;
+      -webkit-appearance: none;
+      border: 3px solid var(--line);
+      background: #0a0f14;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 95px;
+      cursor: pointer;
+      user-select: none;
+      transition: transform .12s ease, box-shadow .12s ease;
+      color: #fff;
+    }
+
+    .score-item:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 2px rgba(37,255,53,.2) inset;
+    }
+
+    .score-item .name {
+      font-size: clamp(26px, 3vw, 58px);
+      font-weight: 900;
+      line-height: 1;
+      color: #fff;
+    }
+
+    .score-item .sub {
+      color: #f0f5ff;
+      opacity: .95;
+      font-size: clamp(20px, 2vw, 34px);
+      line-height: 1;
+      margin-top: 5px;
+    }
+
+    .score-item .point {
+      font-size: clamp(34px, 4vw, 72px);
+      color: var(--line);
+      font-weight: 900;
+      font-family: "Bahnschrift", "Consolas", "Segoe UI", sans-serif;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 1px;
+      min-width: 2.3ch;
+      text-align: center;
+    }
+
+    .score-item.x {
+      min-height: 130px;
+      clip-path: polygon(0 0, 92% 0, 100% 26%, 100% 100%, 0 100%);
+    }
+
+    .score-item.x .name {
+      font-size: clamp(38px, 4vw, 76px);
+      color: var(--line);
+    }
+
+    .side.right .score-item {
+      flex-direction: row-reverse;
+    }
+
+    .side.right .score-item > div:first-child {
+      text-align: right;
+    }
+
+    .side.right .score-item.x {
+      clip-path: polygon(8% 0, 100% 0, 100% 100%, 0 100%, 0 26%);
+    }
+
+    .center {
+      display: grid;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .score-panels {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .score-box {
+      border: 6px solid var(--line);
+      border-radius: 42px;
+      height: 210px;
+      background: linear-gradient(180deg, #151d25, #0e141a);
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .score-value {
+      font-size: clamp(86px, 10vw, 160px);
+      font-weight: 900;
+      color: var(--line);
+      line-height: 1;
+      font-family: "Bahnschrift", "Consolas", "Segoe UI", sans-serif;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px rgba(37, 255, 53, .35);
+    }
+
+    .score-title {
+      margin-top: 4px;
+      text-align: center;
+      color: var(--accent);
+      letter-spacing: .25em;
+      font-size: 24px;
+    }
+
+    .versus {
+      font-size: clamp(48px, 5vw, 80px);
+      font-weight: 900;
+      color: #fff;
+      opacity: .95;
+    }
+
+    .result {
+      margin-top: 8px;
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+    }
+
+    .result button {
+      border: 0;
+      background: #a6adb8;
+      color: #121723;
+      font-size: clamp(30px, 4vw, 56px);
+      font-weight: 900;
+      padding: 8px 34px;
+      clip-path: polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%);
+      cursor: pointer;
+    }
+
+    .shot-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    .shot {
+      background: #2a313c;
+      padding: 6px;
+      text-align: left;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      border: 1px solid #3c4758;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .shot .label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .miss-lights {
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .miss-light {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid #c3cfdf;
+      background: #1e2734;
+      box-shadow: inset 0 0 4px rgba(0, 0, 0, .45);
+    }
+
+    .miss-light.on {
+      background: #ffd54a;
+      border-color: #ffe58e;
+      box-shadow: 0 0 8px rgba(255, 213, 74, .75);
+    }
+
+    .controls {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .controls button {
+      border: 1px solid #3a4758;
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 15px;
+      border-radius: 6px;
+    }
+
+    .controls button.warn {
+      border-color: #644045;
+      color: #ffdce1;
+      background: #2a1419;
+    }
+
+    .result-line {
+      margin-top: 8px;
+      text-align: center;
+      font-size: clamp(26px, 3vw, 42px);
+      font-weight: 900;
+    }
+
+    .result-line .left { color: var(--ok); }
+    .result-line .right { color: #52d8ff; }
+    .result-line .tie { color: #f0f4ff; }
+
+    @media (max-width: 1200px) {
+      .top-row { grid-template-columns: 1fr; }
+      .main { grid-template-columns: 1fr; }
+      .center { order: -1; }
+      .score-panels { grid-template-columns: 1fr; }
+      .versus { text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="board">
+    <div class="top-row">
+      <div class="name-box"><input id="leftName" value="B Side" /></div>
+      <div class="center-status">
+        <div id="roundLabel" class="r-label">
+          <div class="rl-main">R<strong>1</strong></div>
+          <div class="rl-sub">&nbsp;</div>
+        </div>
+        <button id="modeTag" class="tag">賽程</button>
+      </div>
+      <div class="name-box"><input id="rightName" value="X Side" /></div>
+    </div>
+
+    <div class="main">
+      <div class="side" id="leftSide"></div>
+
+      <div class="center">
+        <div class="score-panels">
+          <div>
+            <div class="score-box"><div id="leftScore" class="score-value">0</div></div>
+            <div class="score-title">SCORE</div>
+          </div>
+          <div class="versus">X</div>
+          <div>
+            <div class="score-box"><div id="rightScore" class="score-value">0</div></div>
+            <div class="score-title">SCORE</div>
+          </div>
+        </div>
+
+        <div class="result">
+          <button id="resetScoreBtn" class="warn">清空分數</button>
+          <button id="tieBtn">重置犯規</button>
+          <div class="shot-row">
+            <div class="shot" id="leftMissBtn">
+              <span class="label">犯規 左側</span>
+              <span class="miss-lights">
+                <span class="miss-light" id="leftMissLight1"></span>
+                <span class="miss-light" id="leftMissLight2"></span>
+              </span>
+            </div>
+            <div class="shot" id="rightMissBtn">
+              <span class="label">犯規 右側</span>
+              <span class="miss-lights">
+                <span class="miss-light" id="rightMissLight1"></span>
+                <span class="miss-light" id="rightMissLight2"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls"></div>
+
+        <div id="resultText" class="result-line"><span class="tie">&nbsp;</span></div>
+      </div>
+
+      <div class="side right" id="rightSide"></div>
+    </div>
+  </div>
+
+  <script>
+    const rules = [
+      { key: "spin", name: "SPIN", sub: "Finish", point: 1, cls: "" },
+      { key: "over", name: "OVER", sub: "Finish", point: 2, cls: "" },
+      { key: "burst", name: "BURST", sub: "Finish", point: 2, cls: "" },
+      { key: "xtreme", name: "XTREME", sub: "Finish", point: 3, cls: "x" },
+    ];
+
+    const scoreboardKey = "offline-scoreboard-v1";
+    const tournamentKey = "offline-tournament-v1";
+
+    const state = {
+      leftName: "B Side",
+      rightName: "X Side",
+      leftScore: 0,
+      rightScore: 0,
+      result: "",
+      leftMissCount: 0,
+      rightMissCount: 0,
+    };
+
+    let tournament = null;
+    let pendingAdvance = false;
+
+    function save() {
+      localStorage.setItem(scoreboardKey, JSON.stringify(state));
+    }
+
+    function load() {
+      const raw = localStorage.getItem(scoreboardKey);
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        Object.assign(state, data);
+      } catch {}
+    }
+
+    function loadTournament() {
+      const raw = localStorage.getItem(tournamentKey);
+      if (!raw) return null;
+      try {
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.rounds)) return null;
+        return data;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveTournament(data) {
+      localStorage.setItem(tournamentKey, JSON.stringify(data));
+    }
+
+    function getFlatMatches(rounds) {
+      const flat = [];
+      rounds.forEach((round) => {
+        (round.matches || []).forEach((m) => flat.push(m));
+      });
+      return flat;
+    }
+
+    function getCurrentMatch() {
+      if (!tournament) return null;
+      const flat = getFlatMatches(tournament.rounds);
+      const idx = Number(tournament.currentMatchIndex) || 0;
+      if (idx < 0 || idx >= flat.length) return null;
+      return { match: flat[idx], index: idx, total: flat.length };
+    }
+
+    function setRoundLabel(mainText, subText = "") {
+      const el = document.getElementById("roundLabel");
+      el.innerHTML = `<div class="rl-main">${mainText}</div><div class="rl-sub">${subText || "&nbsp;"}</div>`;
+    }
+
+    function applyTournamentMatch(forceReset = false) {
+      tournament = loadTournament();
+      const current = getCurrentMatch();
+      if (!current) {
+        if (tournament && getFlatMatches(tournament.rounds).length > 0) {
+          const total = getFlatMatches(tournament.rounds).length;
+          setRoundLabel("SCHEDULE DONE", `${total}/${total}`);
+        } else {
+          setRoundLabel("R<strong>1</strong>", "");
+        }
+        return;
+      }
+
+      const { match, index, total } = current;
+      setRoundLabel(`T${match.table}/R${match.round}`, `${index + 1}/${total}`);
+
+      const changed = state.leftName !== match.a || state.rightName !== match.b;
+      if (changed || forceReset) {
+        state.leftName = match.a;
+        state.rightName = match.b;
+        state.leftScore = 0;
+        state.rightScore = 0;
+        state.leftMissCount = 0;
+        state.rightMissCount = 0;
+        state.result = "";
+      }
+    }
+
+    function renderResult() {
+      const el = document.getElementById("resultText");
+      if (state.result === "左方勝利") el.innerHTML = '<span class="left">左方勝利</span>';
+      else if (state.result === "右方勝利") el.innerHTML = '<span class="right">右方勝利</span>';
+      else if (state.result === "平手") el.innerHTML = '<span class="tie">平手</span>';
+      else el.innerHTML = '<span class="tie">&nbsp;</span>';
+    }
+
+    function renderMissLights(side, count) {
+      const ids = side === "left"
+        ? ["leftMissLight1", "leftMissLight2"]
+        : ["rightMissLight1", "rightMissLight2"];
+      ids.forEach((id, i) => {
+        document.getElementById(id).classList.toggle("on", i < count);
+      });
+    }
+
+    function render() {
+      document.getElementById("leftName").value = state.leftName;
+      document.getElementById("rightName").value = state.rightName;
+      const lockNames = !!getCurrentMatch();
+      document.getElementById("leftName").readOnly = lockNames;
+      document.getElementById("rightName").readOnly = lockNames;
+      document.getElementById("leftScore").textContent = state.leftScore;
+      document.getElementById("rightScore").textContent = state.rightScore;
+      renderMissLights("left", state.leftMissCount);
+      renderMissLights("right", state.rightMissCount);
+      renderResult();
+    }
+
+    function getWinnerSide() {
+      if (state.leftScore >= 4 && state.leftScore > state.rightScore) return "left";
+      if (state.rightScore >= 4 && state.rightScore > state.leftScore) return "right";
+      return null;
+    }
+
+    function completeCurrentMatch(winnerSide) {
+      const current = getCurrentMatch();
+      if (!current || pendingAdvance) return;
+
+      const { match } = current;
+      if (!tournament.results) tournament.results = {};
+
+      tournament.results[match.id] = {
+        id: match.id,
+        round: match.round,
+        table: match.table,
+        a: match.a,
+        b: match.b,
+        leftScore: state.leftScore,
+        rightScore: state.rightScore,
+        winner: winnerSide === "left" ? match.a : match.b,
+        completedAt: new Date().toISOString(),
+      };
+
+      tournament.currentMatchIndex = (Number(tournament.currentMatchIndex) || 0) + 1;
+      saveTournament(tournament);
+
+      pendingAdvance = true;
+      setRoundLabel("RECORDED", "NEXT MATCH...");
+      setTimeout(() => {
+        pendingAdvance = false;
+        applyTournamentMatch(true);
+        save();
+        render();
+      }, 900);
+    }
+
+    function addScore(side, amount) {
+      if (pendingAdvance) return;
+      if (side === "left") state.leftScore += amount;
+      else state.rightScore += amount;
+
+      const winnerSide = getWinnerSide();
+      if (winnerSide === "left") state.result = "左方勝利";
+      else if (winnerSide === "right") state.result = "右方勝利";
+      else state.result = "";
+
+      render();
+      save();
+
+      if (winnerSide) {
+        completeCurrentMatch(winnerSide);
+      }
+    }
+
+    function buildSide(containerId, side) {
+      const host = document.getElementById(containerId);
+      rules.forEach((r) => {
+        const item = document.createElement("button");
+        item.className = `score-item ${r.cls}`;
+        item.type = "button";
+        item.innerHTML = `<div><div class="name">${r.name}</div><div class="sub">${r.sub}</div></div><div class="point">+${r.point}</div>`;
+
+        item.addEventListener("click", () => addScore(side, r.point));
+        item.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          addScore(side, -r.point);
+        });
+        host.appendChild(item);
+      });
+    }
+
+    buildSide("leftSide", "left");
+    buildSide("rightSide", "right");
+
+    function registerMiss(side) {
+      const key = side === "left" ? "leftMissCount" : "rightMissCount";
+      state[key] = Math.min(2, state[key] + 1);
+
+      if (state[key] >= 2) {
+        state[key] = 0;
+        addScore(side === "left" ? "right" : "left", 1);
+      } else {
+        render();
+        save();
+      }
+    }
+
+    document.getElementById("leftName").addEventListener("input", (e) => {
+      if (getCurrentMatch()) return;
+      state.leftName = e.target.value;
+      save();
+    });
+
+    document.getElementById("rightName").addEventListener("input", (e) => {
+      if (getCurrentMatch()) return;
+      state.rightName = e.target.value;
+      save();
+    });
+
+    document.getElementById("modeTag").addEventListener("click", () => {
+      window.open("./round_robin_schedule.html", "_blank");
+    });
+
+    document.getElementById("tieBtn").addEventListener("click", () => {
+      state.leftMissCount = 0;
+      state.rightMissCount = 0;
+      render();
+      save();
+    });
+
+    document.getElementById("leftMissBtn").addEventListener("click", () => registerMiss("left"));
+    document.getElementById("rightMissBtn").addEventListener("click", () => registerMiss("right"));
+
+    document.getElementById("resetScoreBtn").addEventListener("click", () => {
+      state.leftScore = 0;
+      state.rightScore = 0;
+      state.result = "";
+      render();
+      save();
+    });
+
+    window.addEventListener("storage", (event) => {
+      if (event.key === tournamentKey) {
+        applyTournamentMatch();
+        render();
+      }
+    });
+
+    load();
+    applyTournamentMatch();
+    state.leftMissCount = Math.max(0, Math.min(2, Number(state.leftMissCount) || 0));
+    state.rightMissCount = Math.max(0, Math.min(2, Number(state.rightMissCount) || 0));
+    save();
+    render();
+  </script>
+</body>
+</html>
