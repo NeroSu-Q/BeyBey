@@ -489,7 +489,8 @@
 
     document.getElementById("backBtn").addEventListener("click", () => {
       if (window.location.protocol.startsWith("http")) {
-        window.location.href = "./index.html";
+        const baseDir = window.location.pathname.replace(/\/[^/]*$/, "/");
+        window.location.href = `${window.location.origin}${baseDir}index.html`;
       } else {
         window.location.href = "./beyx_offline_scoreboard.html";
       }
