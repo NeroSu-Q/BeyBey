@@ -488,7 +488,11 @@
     });
 
     document.getElementById("backBtn").addEventListener("click", () => {
-      window.location.href = "./beyx_offline_scoreboard.html";
+      if (window.location.protocol.startsWith("http")) {
+        window.location.href = "./index.html";
+      } else {
+        window.location.href = "./beyx_offline_scoreboard.html";
+      }
     });
 
     document.getElementById("clearBtn").addEventListener("click", () => {
