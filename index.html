@@ -58,6 +58,10 @@
       padding: 12px 18px;
     }
 
+    .name-box.right {
+      clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%, 0 40%);
+    }
+
     .name-box input {
       width: 100%;
       border: 0;
@@ -67,6 +71,10 @@
       font-size: clamp(26px, 4vw, 64px);
       font-weight: 800;
       letter-spacing: 1px;
+    }
+
+    .name-box.right input {
+      text-align: right;
     }
 
     .center-status {
@@ -392,7 +400,7 @@
         </div>
         <button id="modeTag" class="tag">賽程</button>
       </div>
-      <div class="name-box"><input id="rightName" value="X Side" /></div>
+      <div class="name-box right"><input id="rightName" value="X Side" /></div>
     </div>
 
     <div class="main">
