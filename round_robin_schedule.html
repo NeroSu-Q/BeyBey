@@ -160,6 +160,16 @@
       margin-bottom: 6px;
     }
 
+    .edit-btn {
+      border: 1px solid #58718f;
+      border-radius: 6px;
+      background: #162538;
+      color: #e4efff;
+      padding: 5px 9px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
     .hidden { display: none; }
 
     .standings {
@@ -431,7 +441,7 @@
         box.appendChild(title);
 
         const table = document.createElement("table");
-        table.innerHTML = "<thead><tr><th>場次</th><th>選手 A</th><th>選手 B</th><th>狀態</th><th>結果</th></tr></thead>";
+        table.innerHTML = "<thead><tr><th>場次</th><th>選手 A</th><th>選手 B</th><th>狀態</th><th>結果</th><th>操作</th></tr></thead>";
 
         const tbody = document.createElement("tbody");
         round.matches.forEach((m) => {
@@ -440,7 +450,34 @@
           const status = res ? "完成" : (idx === currentIndex ? "進行中" : "待賽");
           const resultText = res ? `${res.leftScore} : ${res.rightScore}（${res.winner}）` : "-";
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${m.table}</td><td>${m.a}</td><td>${m.b}</td><td>${status}</td><td>${resultText}</td>`;
+          tr.innerHTML = `<td>${m.table}</td><td>${m.a}</td><td>${m.b}</td><td>${status}</td><td>${resultText}</td><td></td>`;
+
+          if (res && tournamentState) {
+            const editButton = document.createElement("button");
+            editButton.type = "button";
+            editButton.className = "edit-btn";
+            editButton.textContent = "修改";
+            editButton.addEventListener("click", () => {
+              const leftInput = prompt(`${m.a} 的分數`, String(res.leftScore));
+              if (leftInput === null) return;
+              const rightInput = prompt(`${m.b} 的分數`, String(res.rightScore));
+              if (rightInput === null) return;
+
+              const leftScore = Number(leftInput);
+              const rightScore = Number(rightInput);
+              if (!Number.isInteger(leftScore) || !Number.isInteger(rightScore) || leftScore < 0 || rightScore < 0) {
+                alert("分數必須是 0 或以上的整數。");
+                return;
+              }
+
+              res.leftScore = leftScore;
+              res.rightScore = rightScore;
+              res.winner = leftScore > rightScore ? m.a : rightScore > leftScore ? m.b : "平手";
+              saveTournament(tournamentState);
+              renderSchedule(names, schedule, tournamentState);
+            });
+            tr.lastElementChild.appendChild(editButton);
+          }
           tbody.appendChild(tr);
         });
 
