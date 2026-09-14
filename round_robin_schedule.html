@@ -390,28 +390,87 @@
       groups.sort((a, b) => b.start - a.start);
       let playoffId = 1;
       groups.forEach((group) => {
-        for (let i = 0; i + 1 < group.players.length; i += 2) {
-          const firstPlace = group.start + i + 1;
-          const secondPlace = firstPlace + 1;
-          const match = {
-            id: `P${playoffId++}`,
-            round: `${firstPlace}/${secondPlace}`,
-            table: 1,
-            a: group.players[i].player,
-            b: group.players[i + 1].player,
-            phase: "playoff",
-            placement: [firstPlace, secondPlace],
-          };
+        const players = group.players.map((player) => player.player);
+        const groupId = `G${group.start + 1}-${group.start + players.length}`;
+        const matches = [];
+        let table = 1;
+        for (let i = 0; i < players.length; i += 1) {
+          for (let j = i + 1; j < players.length; j += 1) {
+            matches.push({
+              id: `P${playoffId++}`,
+              round: `${group.start + 1}-${group.start + players.length}`,
+              table: table++,
+              a: players[i],
+              b: players[j],
+              phase: "playoff",
+              tieGroupId: groupId,
+              tieGroupStart: group.start,
+              tieGroupPlayers: players,
+            });
+          }
+        }
+        if (matches.length > 0) {
           tournamentState.rounds.push({
-            round: `${firstPlace}/${secondPlace}`,
+            round: `${group.start + 1}-${group.start + players.length}`,
             phase: "playoff",
-            matches: [match],
+            tieGroupId: groupId,
+            matches,
           });
         }
       });
 
       tournamentState.playoffsInitialized = true;
       tournamentState.placements = tournamentState.placements || {};
+      saveTournament(tournamentState);
+    }
+
+    function finalizeTieBreakGroup(tournamentState, match) {
+      if (!tournamentState || !match || !match.tieGroupId) return;
+      const allMatches = getFlatMatches(tournamentState.rounds);
+      const groupMatches = allMatches.filter((item) => item.tieGroupId === match.tieGroupId);
+      const results = tournamentState.results || {};
+      if (!groupMatches.every((item) => !!results[item.id])) return;
+
+      const map = {};
+      (match.tieGroupPlayers || []).forEach((player) => {
+        map[player] = { player, points: 0, totalScore: 0, againstScore: 0 };
+      });
+      groupMatches.forEach((item) => {
+        const result = results[item.id];
+        const a = map[item.a];
+        const b = map[item.b];
+        if (!a || !b) return;
+        const as = Number(result.leftScore) || 0;
+        const bs = Number(result.rightScore) || 0;
+        a.totalScore += as;
+        b.totalScore += bs;
+        a.againstScore += bs;
+        b.againstScore += as;
+        if (as > bs) a.points += 3;
+        else if (bs > as) b.points += 3;
+        else {
+          a.points += 1;
+          b.points += 1;
+        }
+      });
+
+      const rows = Object.keys(map).map((key) => map[key]);
+      rows.sort((x, y) =>
+        y.points - x.points ||
+        (y.totalScore - y.againstScore) - (x.totalScore - x.againstScore) ||
+        y.totalScore - x.totalScore ||
+        x.player.localeCompare(y.player, "zh-Hant")
+      );
+      tournamentState.placements = tournamentState.placements || {};
+      let lastKey = "";
+      let lastPlace = 0;
+      rows.forEach((row, index) => {
+        const key = `${row.points}/${row.totalScore - row.againstScore}/${row.totalScore}`;
+        const place = index === 0 || key !== lastKey ? match.tieGroupStart + index + 1 : lastPlace;
+        tournamentState.placements[row.player] = place;
+        lastKey = key;
+        lastPlace = place;
+      });
       saveTournament(tournamentState);
     }
 
@@ -626,7 +685,12 @@
               res.leftScore = leftScore;
               res.rightScore = rightScore;
               res.winner = leftScore > rightScore ? m.a : rightScore > leftScore ? m.b : "平手";
-              if (res.phase === "playoff" && res.placement) {
+              if (m.phase === "playoff" && m.tieGroupId) {
+                res.phase = "playoff";
+                res.tieGroupId = m.tieGroupId;
+                res.tieGroupPlayers = m.tieGroupPlayers || null;
+                finalizeTieBreakGroup(tournamentState, m);
+              } else if (res.phase === "playoff" && res.placement) {
                 tournamentState.placements = tournamentState.placements || {};
                 if (leftScore !== rightScore) {
                   const winner = leftScore > rightScore ? m.a : m.b;
