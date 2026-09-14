@@ -243,6 +243,10 @@
       }
     }
 
+    function isWholeNumber(value) {
+      return typeof value === "number" && isFinite(value) && Math.floor(value) === value;
+    }
+
     function saveTournament(data) {
       localStorage.setItem(tournamentKey, JSON.stringify(data));
     }
@@ -271,7 +275,7 @@
     }
 
     function collectNames(count) {
-      const inputs = [...document.querySelectorAll("#nameInputs input")];
+      const inputs = Array.prototype.slice.call(document.querySelectorAll("#nameInputs input"));
       const names = inputs.slice(0, count).map((input, i) => {
         const value = input.value.trim();
         return value || `選手 ${i + 1}`;
@@ -280,14 +284,14 @@
     }
 
     function buildRoundRobin(names) {
-      const list = [...names];
+      const list = names.slice();
       const hasBye = list.length % 2 === 1;
       if (hasBye) list.push("輪空");
 
       const n = list.length;
       const rounds = [];
       let matchId = 1;
-      let arr = [...list];
+      let arr = list.slice();
 
       for (let r = 0; r < n - 1; r += 1) {
         const matches = [];
@@ -303,7 +307,7 @@
         const fixed = arr[0];
         const moving = arr.slice(1);
         moving.unshift(moving.pop());
-        arr = [fixed, ...moving];
+        arr = [fixed].concat(moving);
       }
 
       return { rounds, hasBye };
@@ -316,18 +320,22 @@
     }
 
     function computeStandings(players, results) {
-      const map = Object.fromEntries(players.map((p) => [p, {
-        player: p,
-        played: 0,
-        win: 0,
-        draw: 0,
-        lose: 0,
-        points: 0,
-        totalScore: 0,
-        againstScore: 0,
-      }]));
+      const map = {};
+      players.forEach((p) => {
+        map[p] = {
+          player: p,
+          played: 0,
+          win: 0,
+          draw: 0,
+          lose: 0,
+          points: 0,
+          totalScore: 0,
+          againstScore: 0,
+        };
+      });
 
-      Object.values(results || {}).forEach((res) => {
+      Object.keys(results || {}).forEach((key) => {
+        const res = results[key];
         const a = map[res.a];
         const b = map[res.b];
         if (!a || !b) return;
@@ -358,10 +366,12 @@
         }
       });
 
-      const rows = Object.values(map).map((r) => ({
-        ...r,
-        diff: r.totalScore - r.againstScore,
-      }));
+      const rows = Object.keys(map).map((key) => {
+        const r = map[key];
+        const row = Object.assign({}, r);
+        row.diff = r.totalScore - r.againstScore;
+        return row;
+      });
 
       rows.sort((x, y) =>
         y.points - x.points ||
@@ -382,7 +392,7 @@
         return;
       }
 
-      const rows = computeStandings(players, tournamentState?.results || {});
+      const rows = computeStandings(players, tournamentState && tournamentState.results ? tournamentState.results : {});
       const table = document.createElement("table");
       table.innerHTML = `
         <thead>
@@ -419,9 +429,10 @@
       const roundsEl = document.getElementById("rounds");
       roundsEl.innerHTML = "";
       const flat = getFlatMatches(schedule.rounds);
-      const indexById = Object.fromEntries(flat.map((m, idx) => [m.id, idx]));
-      const currentIndex = Number(tournamentState?.currentMatchIndex) || 0;
-      const results = tournamentState?.results || {};
+      const indexById = {};
+      flat.forEach((m, idx) => { indexById[m.id] = idx; });
+      const currentIndex = tournamentState && tournamentState.currentMatchIndex ? Number(tournamentState.currentMatchIndex) : 0;
+      const results = tournamentState && tournamentState.results ? tournamentState.results : {};
       const allDone = flat.length > 0 && currentIndex >= flat.length;
 
       meta.innerHTML = [
@@ -465,7 +476,7 @@
 
               const leftScore = Number(leftInput);
               const rightScore = Number(rightInput);
-              if (!Number.isInteger(leftScore) || !Number.isInteger(rightScore) || leftScore < 0 || rightScore < 0) {
+              if (!isWholeNumber(leftScore) || !isWholeNumber(rightScore) || leftScore < 0 || rightScore < 0) {
                 alert("分數必須是 0 或以上的整數。");
                 return;
               }
@@ -496,7 +507,7 @@
 
     document.getElementById("buildNamesBtn").addEventListener("click", () => {
       const count = Number(document.getElementById("playerCount").value);
-      if (!Number.isInteger(count) || count < 2 || count > 64) {
+      if (!isWholeNumber(count) || count < 2 || count > 64) {
         alert("請輸入 2 到 64 之間的人數。");
         return;
       }
@@ -544,7 +555,7 @@
     });
 
     const saved = loadData();
-    if (saved && Number.isInteger(saved.count) && saved.count >= 2 && saved.count <= 64) {
+    if (saved && isWholeNumber(saved.count) && saved.count >= 2 && saved.count <= 64) {
       document.getElementById("playerCount").value = String(saved.count);
       createNameInputs(saved.count, saved.names || []);
       showStep(true, false);
