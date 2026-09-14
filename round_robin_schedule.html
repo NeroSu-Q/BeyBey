@@ -185,6 +185,12 @@
       font-size: 20px;
       color: #d7e3ff;
     }
+
+    .phase-title {
+      margin: 18px 0 8px;
+      font-size: 24px;
+      color: #d7e3ff;
+    }
   </style>
 </head>
 <body>
@@ -218,6 +224,12 @@
       <h2>賽程圖表</h2>
       <div id="meta"></div>
       <div id="rounds" class="rounds"></div>
+      <div id="preliminarySummary" class="standings hidden">
+        <h3>初賽總結（複賽前）</h3>
+        <div id="preliminaryTable"></div>
+      </div>
+      <h3 id="playoffTitle" class="phase-title hidden">複賽／名次賽</h3>
+      <div id="playoffRounds" class="rounds"></div>
       <div id="standings" class="standings hidden">
         <h3>最終積分榜</h3>
         <div id="standingsTable"></div>
@@ -460,30 +472,22 @@
       });
 
       rows.sort((x, y) =>
-        (x.placement || 999) - (y.placement || 999) ||
         y.points - x.points ||
         y.diff - x.diff ||
         y.totalScore - x.totalScore ||
         x.player.localeCompare(y.player, "zh-Hant")
       );
 
+      rows.forEach((row, index) => { row.baseRank = index + 1; });
+      rows.sort((x, y) =>
+        (x.placement || x.baseRank) - (y.placement || y.baseRank) ||
+        x.baseRank - y.baseRank
+      );
+
       return rows;
     }
 
-    function renderStandings(players, tournamentState, allDone) {
-      const host = document.getElementById("standings");
-      const tableHost = document.getElementById("standingsTable");
-      if (!allDone) {
-        host.classList.add("hidden");
-        tableHost.innerHTML = "";
-        return;
-      }
-
-      const rows = computeStandings(
-        players,
-        tournamentState && tournamentState.results ? tournamentState.results : {},
-        tournamentState ? tournamentState.placements : null
-      );
+    function buildStandingsTable(rows) {
       const table = document.createElement("table");
       table.innerHTML = `
         <thead>
@@ -502,7 +506,7 @@
       let lastPoints = null;
       let lastRank = 0;
       rows.forEach((r, idx) => {
-        const rank = r.placement || ((idx === 0 || r.points !== lastPoints) ? (idx + 1) : lastRank);
+        const rank = r.placement || ((idx === 0 || r.points !== lastPoints) ? (r.baseRank || idx + 1) : lastRank);
         lastPoints = r.points;
         lastRank = rank;
         const tr = document.createElement("tr");
@@ -510,8 +514,44 @@
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
+      return table;
+    }
+
+    function renderStandings(players, tournamentState, allDone) {
+      const host = document.getElementById("standings");
+      const tableHost = document.getElementById("standingsTable");
+      if (!allDone) {
+        host.classList.add("hidden");
+        tableHost.innerHTML = "";
+        return;
+      }
+
+      const rows = computeStandings(
+        players,
+        tournamentState && tournamentState.results ? tournamentState.results : {},
+        tournamentState ? tournamentState.placements : null
+      );
       tableHost.innerHTML = "";
-      tableHost.appendChild(table);
+      tableHost.appendChild(buildStandingsTable(rows));
+      host.classList.remove("hidden");
+    }
+
+    function renderPreliminaryStandings(players, tournamentState, leagueFinished) {
+      const host = document.getElementById("preliminarySummary");
+      const tableHost = document.getElementById("preliminaryTable");
+      if (!leagueFinished) {
+        host.classList.add("hidden");
+        tableHost.innerHTML = "";
+        return;
+      }
+
+      const rows = computeStandings(
+        players,
+        tournamentState && tournamentState.results ? tournamentState.results : {},
+        null
+      );
+      tableHost.innerHTML = "";
+      tableHost.appendChild(buildStandingsTable(rows));
       host.classList.remove("hidden");
     }
 
@@ -522,12 +562,19 @@
       }
       const meta = document.getElementById("meta");
       const roundsEl = document.getElementById("rounds");
+      const playoffRoundsEl = document.getElementById("playoffRounds");
+      const playoffTitle = document.getElementById("playoffTitle");
       roundsEl.innerHTML = "";
+      playoffRoundsEl.innerHTML = "";
       const flat = getFlatMatches(schedule.rounds);
+      const leagueRounds = schedule.rounds.filter((round) => round.phase !== "playoff");
+      const playoffRounds = schedule.rounds.filter((round) => round.phase === "playoff");
+      const leagueMatches = getFlatMatches(leagueRounds);
       const indexById = {};
       flat.forEach((m, idx) => { indexById[m.id] = idx; });
       const currentIndex = tournamentState && tournamentState.currentMatchIndex ? Number(tournamentState.currentMatchIndex) : 0;
       const results = tournamentState && tournamentState.results ? tournamentState.results : {};
+      const leagueFinished = leagueMatches.length > 0 && leagueMatches.every((match) => !!results[match.id]);
       const allDone = flat.length > 0 && currentIndex >= flat.length;
 
       meta.innerHTML = [
@@ -538,7 +585,7 @@
         schedule.hasBye ? '<span class="badge">含輪空機制</span>' : ""
       ].join(" ");
 
-      schedule.rounds.forEach((round) => {
+      function renderRound(round, host) {
         const box = document.createElement("article");
         box.className = "round";
 
@@ -601,8 +648,18 @@
 
         table.appendChild(tbody);
         box.appendChild(table);
-        roundsEl.appendChild(box);
-      });
+        host.appendChild(box);
+      }
+
+      leagueRounds.forEach((round) => renderRound(round, roundsEl));
+      renderPreliminaryStandings(names, tournamentState, leagueFinished);
+
+      if (playoffRounds.length > 0) {
+        playoffTitle.classList.remove("hidden");
+        playoffRounds.forEach((round) => renderRound(round, playoffRoundsEl));
+      } else {
+        playoffTitle.classList.add("hidden");
+      }
 
       renderStandings(names, tournamentState, allDone);
     }
