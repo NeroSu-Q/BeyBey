@@ -319,7 +319,91 @@
       return flat;
     }
 
-    function computeStandings(players, results) {
+    function getLeagueStandings(players, results) {
+      const map = {};
+      players.forEach((p) => {
+        map[p] = { player: p, points: 0, totalScore: 0, againstScore: 0 };
+      });
+
+      Object.keys(results || {}).forEach((key) => {
+        const res = results[key];
+        if (res.phase === "playoff") return;
+        const a = map[res.a];
+        const b = map[res.b];
+        if (!a || !b) return;
+
+        const as = Number(res.leftScore) || 0;
+        const bs = Number(res.rightScore) || 0;
+        a.totalScore += as;
+        b.totalScore += bs;
+        a.againstScore += bs;
+        b.againstScore += as;
+        if (as > bs) a.points += 3;
+        else if (bs > as) b.points += 3;
+        else {
+          a.points += 1;
+          b.points += 1;
+        }
+      });
+
+      const rows = Object.keys(map).map((key) => map[key]);
+      rows.sort((x, y) =>
+        y.points - x.points ||
+        (y.totalScore - y.againstScore) - (x.totalScore - x.againstScore) ||
+        y.totalScore - x.totalScore ||
+        x.player.localeCompare(y.player, "zh-Hant")
+      );
+      return rows;
+    }
+
+    function createTieBreakMatches(tournamentState) {
+      if (!tournamentState || tournamentState.playoffsInitialized) return;
+
+      const allMatches = getFlatMatches(tournamentState.rounds);
+      const leagueMatches = allMatches.filter((match) => match.phase !== "playoff");
+      const results = tournamentState.results || {};
+      const leagueFinished = leagueMatches.length > 0 && leagueMatches.every((match) => !!results[match.id]);
+      if (!leagueFinished) return;
+
+      const standings = getLeagueStandings(tournamentState.players, results);
+      const groups = [];
+      let start = 0;
+      while (start < standings.length) {
+        let end = start + 1;
+        while (end < standings.length && standings[end].points === standings[start].points) end += 1;
+        if (end - start >= 2) groups.push({ start, players: standings.slice(start, end) });
+        start = end;
+      }
+
+      groups.sort((a, b) => b.start - a.start);
+      let playoffId = 1;
+      groups.forEach((group) => {
+        for (let i = 0; i + 1 < group.players.length; i += 2) {
+          const firstPlace = group.start + i + 1;
+          const secondPlace = firstPlace + 1;
+          const match = {
+            id: `P${playoffId++}`,
+            round: `${firstPlace}/${secondPlace}`,
+            table: 1,
+            a: group.players[i].player,
+            b: group.players[i + 1].player,
+            phase: "playoff",
+            placement: [firstPlace, secondPlace],
+          };
+          tournamentState.rounds.push({
+            round: `${firstPlace}/${secondPlace}`,
+            phase: "playoff",
+            matches: [match],
+          });
+        }
+      });
+
+      tournamentState.playoffsInitialized = true;
+      tournamentState.placements = tournamentState.placements || {};
+      saveTournament(tournamentState);
+    }
+
+    function computeStandings(players, results, placements) {
       const map = {};
       players.forEach((p) => {
         map[p] = {
@@ -336,6 +420,7 @@
 
       Object.keys(results || {}).forEach((key) => {
         const res = results[key];
+        if (res.phase === "playoff") return;
         const a = map[res.a];
         const b = map[res.b];
         if (!a || !b) return;
@@ -370,10 +455,12 @@
         const r = map[key];
         const row = Object.assign({}, r);
         row.diff = r.totalScore - r.againstScore;
+        row.placement = placements && placements[r.player] ? placements[r.player] : null;
         return row;
       });
 
       rows.sort((x, y) =>
+        (x.placement || 999) - (y.placement || 999) ||
         y.points - x.points ||
         y.diff - x.diff ||
         y.totalScore - x.totalScore ||
@@ -392,7 +479,11 @@
         return;
       }
 
-      const rows = computeStandings(players, tournamentState && tournamentState.results ? tournamentState.results : {});
+      const rows = computeStandings(
+        players,
+        tournamentState && tournamentState.results ? tournamentState.results : {},
+        tournamentState ? tournamentState.placements : null
+      );
       const table = document.createElement("table");
       table.innerHTML = `
         <thead>
@@ -411,7 +502,7 @@
       let lastPoints = null;
       let lastRank = 0;
       rows.forEach((r, idx) => {
-        const rank = (idx === 0 || r.points !== lastPoints) ? (idx + 1) : lastRank;
+        const rank = r.placement || ((idx === 0 || r.points !== lastPoints) ? (idx + 1) : lastRank);
         lastPoints = r.points;
         lastRank = rank;
         const tr = document.createElement("tr");
@@ -425,6 +516,10 @@
     }
 
     function renderSchedule(names, schedule, tournamentState = null) {
+      if (tournamentState) {
+        createTieBreakMatches(tournamentState);
+        schedule.rounds = tournamentState.rounds;
+      }
       const meta = document.getElementById("meta");
       const roundsEl = document.getElementById("rounds");
       roundsEl.innerHTML = "";
@@ -484,6 +579,18 @@
               res.leftScore = leftScore;
               res.rightScore = rightScore;
               res.winner = leftScore > rightScore ? m.a : rightScore > leftScore ? m.b : "平手";
+              if (res.phase === "playoff" && res.placement) {
+                tournamentState.placements = tournamentState.placements || {};
+                if (leftScore !== rightScore) {
+                  const winner = leftScore > rightScore ? m.a : m.b;
+                  const loser = leftScore > rightScore ? m.b : m.a;
+                  tournamentState.placements[winner] = res.placement[0];
+                  tournamentState.placements[loser] = res.placement[1];
+                } else {
+                  delete tournamentState.placements[m.a];
+                  delete tournamentState.placements[m.b];
+                }
+              }
               saveTournament(tournamentState);
               renderSchedule(names, schedule, tournamentState);
             });
@@ -570,6 +677,17 @@
       renderSchedule(names, { rounds: tournament.rounds, hasBye }, tournament);
       showStep(true, true);
     }
+
+    window.addEventListener("storage", (event) => {
+      if (event.key !== tournamentKey) return;
+      const latest = loadTournament();
+      if (!latest || !Array.isArray(latest.players) || !Array.isArray(latest.rounds)) return;
+      const names = latest.players;
+      document.getElementById("playerCount").value = String(names.length);
+      createNameInputs(names.length, names);
+      renderSchedule(names, { rounds: latest.rounds, hasBye: names.length % 2 === 1 }, latest);
+      showStep(true, true);
+    });
   </script>
 </body>
 </html>
